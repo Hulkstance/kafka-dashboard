@@ -1,0 +1,71 @@
+@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Dashboard.Web.Hubs
+@using System.Threading
+@inject NavigationManager _navigationManager
+
+@if (IsConnected)
+{
+    <span class="badge badge-pill badge-success">Połączono</span>
+}
+
+@if (!IsConnected)
+{
+    <span class="badge badge-pill badge-danger">Połączenie zerwane</span>
+}
+
+
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">ConsumedAt</th>
+        <th scope="col">Topic</th>
+        <th scope="col">Message</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    @foreach (var message in messages)
+    {
+        <tr>
+            <th scope="row">@message.Id</th>
+            <td>@message.ConsumedAt.ToLocalTime()</td>
+            <td>@message.Topic</td>
+            <td>@message.Body</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private HubConnection _hubConnection;
+    private List<ConsumedKafkaMessage> messages = new List<ConsumedKafkaMessage>();
+    
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(_navigationManager.ToAbsoluteUri("/hubs/kafka"))
+            .Build();
+
+        _hubConnection.On("ReceivedKafkaMessage", (ConsumedKafkaMessage msg) =>
+        {
+            messages.Add(msg);
+            StateHasChanged();
+        });
+        
+        await _hubConnection.StartAsync();
+    }
+    
+    
+
+    public bool IsConnected =>
+        _hubConnection.State == HubConnectionState.Connected;
+
+    public void Dispose()
+    {
+        _ = _hubConnection.DisposeAsync();
+    }
+
+}
